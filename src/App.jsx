@@ -142,7 +142,7 @@ const HotelBooking = () => {
 
   return (
     <div className="hotel-booking">
-      <h1>Hotel Room Booking</h1>
+      <h1>DevAccelerator Hotel Inn</h1>
       <label htmlFor="roomSelect">Choose a room type:</label>
       <select id="roomSelect" value={selectedRoom} onChange={handleRoomChange}>
         <option value="" disabled>Select a room type</option>
