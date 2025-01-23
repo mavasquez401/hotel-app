@@ -34,7 +34,7 @@ export const login = (credentials) => api.post('/auth/login', credentials);
 // Room endpoints
 export const getRooms = () => api.get('/rooms');
 export const getRoom = (id) => api.get(`/rooms/${id}`);
-export const preReserveRoom = (roomId, days) => {
+export const preReserveRoom = (roomId, { checkIn, checkOut, days }) => {
   const user = JSON.parse(localStorage.getItem('user'));
   if (!user) {
     throw new Error('User not found');
@@ -42,12 +42,16 @@ export const preReserveRoom = (roomId, days) => {
   console.log('Sending pre-reserve request:', {
     roomId,
     days,
+    checkIn,
+    checkOut,
     userId: user.id,
   });
   return api
     .post('/pre-reserve', {
       roomId,
       days,
+      checkIn,
+      checkOut,
       userId: user.id,
     })
     .catch((error) => {

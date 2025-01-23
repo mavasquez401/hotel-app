@@ -23,7 +23,10 @@ const Rooms = ({ cart, addToCart, removeFromCart }) => {
   const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState('');
-  const [selectedDays, setSelectedDays] = useState('');
+  const [dates, setDates] = useState({
+    checkIn: '',
+    checkOut: '',
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -73,9 +76,17 @@ const Rooms = ({ cart, addToCart, removeFromCart }) => {
     return 'Standard Floor';
   };
 
+  const calculateDays = () => {
+    if (!dates.checkIn || !dates.checkOut) return 0;
+    const checkIn = new Date(dates.checkIn);
+    const checkOut = new Date(dates.checkOut);
+    const diffTime = Math.abs(checkOut - checkIn);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
   const resetSelections = () => {
     setSelectedRoom('');
-    setSelectedDays('');
+    setDates({ checkIn: '', checkOut: '' });
   };
 
   const handleAddToCart = async () => {
@@ -83,16 +94,19 @@ const Rooms = ({ cart, addToCart, removeFromCart }) => {
     if (roomToBook) {
       console.log('Room to book:', roomToBook); // Debug log
       try {
-        const response = await preReserveRoom(
-          roomToBook.id, // Use the ID from the database
-          parseInt(selectedDays)
-        );
+        const response = await preReserveRoom(roomToBook.id, {
+          checkIn: dates.checkIn,
+          checkOut: dates.checkOut,
+          days: calculateDays(),
+        });
         console.log('Pre-reserve response:', response.data); // Debug log
         const booking = {
           room_number: roomToBook.room_number,
           room_type: roomToBook.room_type,
           price: roomToBook.price,
-          days: parseInt(selectedDays),
+          days: calculateDays(),
+          checkIn: dates.checkIn,
+          checkOut: dates.checkOut,
           room_id: roomToBook.id,
           bookingId: response.data.bookingId,
           reservedUntil: response.data.reservedUntil,
@@ -142,7 +156,28 @@ const Rooms = ({ cart, addToCart, removeFromCart }) => {
     (room) => room.room_number === selectedRoom
   );
 
-  if (loading) return <div className="loading">Loading rooms...</div>;
+  if (loading)
+    return (
+      <div className="hotel-booking">
+        <Navbar />
+        <div className="main-content">
+          <div className="room-grid">
+            {[...Array(12)].map((_, index) => (
+              <div key={index} className="room-card loading">
+                <div className="room-card-content">
+                  <div className="room-number skeleton"></div>
+                  <div className="room-type skeleton"></div>
+                  <div className="room-description skeleton"></div>
+                  <div className="room-price skeleton"></div>
+                  <div className="room-status skeleton"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
   if (error) return <div className="error">{error}</div>;
 
   // Group rooms by floor category
@@ -162,54 +197,70 @@ const Rooms = ({ cart, addToCart, removeFromCart }) => {
       <PreReservedRooms />
 
       <div className="sidebar">
-        {selectedRoom && (
-          <div className="booking-form">
-            <h2>Book Room {selectedRoom}</h2>
-            <label htmlFor="daysSelect">Number of Days:</label>
-            <select
-              id="daysSelect"
-              value={selectedDays}
-              onChange={(e) => setSelectedDays(e.target.value)}
-            >
-              <option value="" disabled>
-                Select days
-              </option>
-              {[...Array(90).keys()].map((day) => (
-                <option key={day + 1} value={day + 1}>
-                  {day + 1}
-                </option>
-              ))}
-            </select>
-
-            {selectedDays && (
-              <div className="booking-details">
-                <p>
-                  Selected Room:{' '}
-                  {rooms.find((r) => r.room_number === selectedRoom)?.room_type}{' '}
-                  (Room {selectedRoom})
-                </p>
-                <p>
-                  Daily Rate: $
-                  {rooms.find((r) => r.room_number === selectedRoom)?.price}
-                </p>
-                <p>
-                  Total Cost: $
-                  {rooms.find((r) => r.room_number === selectedRoom)?.price *
-                    selectedDays}
-                </p>
-                <button className="book-button" onClick={handleAddToCart}>
-                  Add to Cart
-                </button>
+        <div className="sidebar-content">
+          {selectedRoom && (
+            <div className="booking-form">
+              <h2>Book Room {selectedRoom}</h2>
+              <div className="form-group">
+                <label htmlFor="checkIn">Check-in Date:</label>
+                <input
+                  type="date"
+                  id="checkIn"
+                  value={dates.checkIn}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) =>
+                    setDates((prev) => ({ ...prev, checkIn: e.target.value }))
+                  }
+                  required
+                />
               </div>
-            )}
-          </div>
-        )}
+              <div className="form-group">
+                <label htmlFor="checkOut">Check-out Date:</label>
+                <input
+                  type="date"
+                  id="checkOut"
+                  value={dates.checkOut}
+                  min={dates.checkIn || new Date().toISOString().split('T')[0]}
+                  onChange={(e) =>
+                    setDates((prev) => ({ ...prev, checkOut: e.target.value }))
+                  }
+                  required
+                />
+              </div>
 
-        <Cart
-          bookings={cart}
-          removeFromCart={handleRemoveFromCart}
-          checkout={handleCheckout}
-        />
+              {dates.checkIn && dates.checkOut && (
+                <div className="booking-details">
+                  <p>
+                    Selected Room:{' '}
+                    {
+                      rooms.find((r) => r.room_number === selectedRoom)
+                        ?.room_type
+                    }{' '}
+                    (Room {selectedRoom})
+                  </p>
+                  <p>
+                    Daily Rate: $
+                    {rooms.find((r) => r.room_number === selectedRoom)?.price}
+                  </p>
+                  <p>
+                    Total Cost: $
+                    {rooms.find((r) => r.room_number === selectedRoom)?.price *
+                      calculateDays()}
+                  </p>
+                  <button className="book-button" onClick={handleAddToCart}>
+                    Add to Cart
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <Cart
+            bookings={cart}
+            removeFromCart={handleRemoveFromCart}
+            checkout={handleCheckout}
+          />
+        </div>
       </div>
 
       <div className="main-content">
@@ -228,20 +279,24 @@ const Rooms = ({ cart, addToCart, removeFromCart }) => {
                     setSelectedRoom(room.room_number)
                   }
                 >
-                  {selectedRoom === room.room_number && (
-                    <div className="selected-indicator">✓</div>
-                  )}
-                  <div className="room-number">Room {room.room_number}</div>
-                  <div className="room-type">{room.room_type}</div>
-                  <div className="room-description">
-                    {roomDescriptions[room.room_type]}
-                  </div>
-                  <div className="room-price">${room.price}/night</div>
-                  <div className={`room-status ${room.status}`}>
-                    {room.status === 'available' ? 'Available' : 'Unavailable'}
-                  </div>
-                  <div className="floor-indicator">
-                    Floor {getFloorNumber(room.room_number)}
+                  <div className="room-card-content">
+                    {selectedRoom === room.room_number && (
+                      <div className="selected-indicator">✓</div>
+                    )}
+                    <div className="room-number">Room {room.room_number}</div>
+                    <div className="room-type">{room.room_type}</div>
+                    <div className="room-description">
+                      {roomDescriptions[room.room_type]}
+                    </div>
+                    <div className="room-price">${room.price}/night</div>
+                    <div className={`room-status ${room.status}`}>
+                      {room.status === 'available'
+                        ? 'Available'
+                        : 'Unavailable'}
+                    </div>
+                    <div className="floor-indicator">
+                      Floor {getFloorNumber(room.room_number)}
+                    </div>
                   </div>
                 </div>
               ))}

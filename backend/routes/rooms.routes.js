@@ -40,9 +40,11 @@ router.post('/pre-reserve', authMiddleware, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    const { roomId, userId, days } = req.body;
-    if (!roomId || !days) {
-      throw new Error('Missing required fields: roomId and days are required');
+    const { roomId, userId, days, checkIn, checkOut } = req.body;
+    if (!roomId || !checkIn || !checkOut) {
+      throw new Error(
+        'Missing required fields: roomId, checkIn, and checkOut are required'
+      );
     }
 
     // Get user ID from auth token if not provided
@@ -68,8 +70,15 @@ router.post('/pre-reserve', authMiddleware, async (req, res) => {
     const [result] = await connection.query(
       `INSERT INTO bookings 
        (userId, room_id, check_in_date, check_out_date, total_price, status, reserved_until)
-       VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), ?, 'pre-reserved', ?)`,
-      [actualUserId, roomId, days, rooms[0].price * days, reservedUntil]
+       VALUES (?, ?, ?, ?, ?, 'pre-reserved', ?)`,
+      [
+        actualUserId,
+        roomId,
+        checkIn,
+        checkOut,
+        rooms[0].price * days,
+        reservedUntil,
+      ]
     );
 
     // Update room status
